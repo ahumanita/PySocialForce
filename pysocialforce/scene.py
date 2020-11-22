@@ -125,9 +125,10 @@ class PedState:
 class EnvState:
     """State of the environment obstacles"""
 
-    def __init__(self, obstacles, resolution=10):
+    def __init__(self, obstacles, fires=None, resolution=10):
         self.resolution = resolution
         self.obstacles = obstacles
+        self.fires = fires
 
     @property
     def obstacles(self) -> List[np.ndarray]:
@@ -149,3 +150,24 @@ class EnvState:
                     )
                 )
                 self._obstacles.append(line)
+
+    @property
+    def fires(self) -> List[np.ndarray]:
+        """fires is a list of np.ndarray"""
+        return self._fires
+
+    @fires.setter
+    def fires(self, fires):
+        """Input an list of (startx, endx, starty, endy) as start and end of a line"""
+        if fires is None:
+            self._fires = []
+        else:
+            self._fires = []
+            for startx, endx, starty, endy in fires:
+                samples = int(np.linalg.norm((startx - endx, starty - endy)) * self.resolution)
+                line = np.array(
+                    list(
+                        zip(np.linspace(startx, endx, samples), np.linspace(starty, endy, samples))
+                    )
+                )
+                self._fires.append(line)

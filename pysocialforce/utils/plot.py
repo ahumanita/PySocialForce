@@ -7,7 +7,7 @@ import numpy as np
 try:
     import matplotlib.pyplot as plt
     import matplotlib.animation as mpl_animation
-    from matplotlib.patches import Circle, Polygon
+    from matplotlib.patches import Circle, Polygon, Rectangle
     from matplotlib.collections import PatchCollection
 except ImportError:
     plt = None
@@ -96,6 +96,7 @@ class SceneVisualizer:
     def plot(self):
         """Main method for create plot"""
         self.plot_obstacles()
+        self.plot_fires()
         groups = self.group_states[0]  # static group for now
         if not groups:
             for ped in range(self.scene.peds.size()):
@@ -218,10 +219,15 @@ class SceneVisualizer:
 
     def plot_obstacles(self):
         for s in self.scene.get_obstacles():
-            self.ax.plot(s[:, 0], s[:, 1], "-o", color="black", markersize=2.5)
+            self.ax.add_patch(Rectangle((s[:,0][0],s[:,1][0]), s[:,0][-1]-s[:,0][0], s[:,1][-1]-s[:,1][0], fill=True, color="black"))
+
+    def plot_fires(self):
+        for f in self.scene.get_fires():
+            self.ax.add_patch(Rectangle((f[:,0][0],f[:,1][0]), f[:,0][-1]-f[:,0][0], f[:,1][-1]-f[:,1][0], fill=True, color="red"))
 
     def animation_init(self):
         self.plot_obstacles()
+        self.plot_fires()
         self.ax.add_collection(self.group_collection)
         self.ax.add_collection(self.human_collection)
 

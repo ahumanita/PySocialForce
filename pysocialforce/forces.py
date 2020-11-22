@@ -320,3 +320,30 @@ class ObstacleForce(Force):
             force[i] = np.sum(directions[dist_mask], axis=0)
 
         return force * self.factor
+
+class FireForce(Force):
+    """Calculates the force between this agent and the nearest fire in this
+    scene.
+    :return:  the calculated force
+    """
+
+    def _get_force(self):
+        sigma = self.config("sigma", 0.2)
+        threshold = self.config("threshold", 0.2) + self.peds.agent_radius
+        force = np.zeros((self.peds.size(), 2))
+        if len(self.scene.get_fires()) == 0:
+            return force
+        fires = np.vstack(self.scene.get_fires())
+        pos = self.peds.pos()
+
+        for i, p in enumerate(pos):
+            diff = p - fires
+            directions, dist = stateutils.normalize(diff)
+            dist = dist - self.peds.agent_radius
+            if np.all(dist >= threshold):
+                continue
+            dist_mask = dist < threshold
+            directions[dist_mask] *= np.exp(-dist[dist_mask].reshape(-1, 1) / sigma)
+            force[i] = np.sum(directions[dist_mask], axis=0)
+
+        return force * self.factor
