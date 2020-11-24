@@ -37,7 +37,7 @@ class Simulator:
         Make one step
     """
 
-    def __init__(self, state, groups=None, obstacles=None, fires=None, config_file=None):
+    def __init__(self, state, groups=None, obstacles=None, fires=None, border=None, config_file=None):
         self.config = DefaultConfig()
         if config_file:
             self.config.load_config(config_file)
@@ -47,7 +47,7 @@ class Simulator:
         self.env = EnvState(obstacles, fires, self.config("resolution", 10.0))
 
         # initiate agents
-        self.peds = PedState(state, groups, self.config)
+        self.peds = PedState(state, groups, border, self.config)
 
         # construct forces
         self.forces = self.make_forces(self.config)
@@ -102,4 +102,19 @@ class Simulator:
         """Step n time"""
         for _ in range(n):
             self.step_once()
+            if self.peds.get_nr_escaped() == self.peds.get_nr_peds() :
+                print("All people escaped!")
+                break
+        return self
+
+    def step_until_all_escaped(self):
+        not_all_escaped = True
+        n = 1
+        while not_all_escaped :
+            self.step_once()
+            if self.peds.get_nr_escaped() == self.peds.get_nr_peds() :
+                print("All people escaped after " + str(n) + " steps!")
+                not_all_escaped = False
+                break
+            n += 1
         return self

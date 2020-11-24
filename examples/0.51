@@ -1,0 +1,4 @@
+Requirement already satisfied: numba in c:\programs\anaconda\envs\fireevacuationproject\lib\site-packages (0.51.2)
+Requirement already satisfied: numpy>=1.15 in c:\programs\anaconda\envs\fireevacuationproject\lib\site-packages (from numba) (1.19.4)
+Requirement already satisfied: setuptools in c:\programs\anaconda\envs\fireevacuationproject\lib\site-packages (from numba) (50.3.1.post20201107)
+Requirement already satisfied: llvmlite<0.35,>=0.34.0.dev0 in c:\programs\anaconda\envs\fireevacuationproject\lib\site-packages (from numba) (0.34.0)

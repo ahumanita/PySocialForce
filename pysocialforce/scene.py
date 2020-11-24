@@ -9,11 +9,13 @@ from pysocialforce.utils import stateutils
 class PedState:
     """Tracks the state of pedstrains and social groups"""
 
-    def __init__(self, state, groups, config):
+    def __init__(self, state, groups, border, config):
         self.default_tau = config("tau", 0.5)
         self.step_width = config("step_width", 0.4)
         self.agent_radius = config("agent_radius", 0.35)
         self.max_speed_multiplier = config("max_speed_multiplier", 1.3)
+
+        self.border = border
 
         self.max_speeds = None
         self.initial_speeds = None
@@ -35,7 +37,9 @@ class PedState:
     def state(self, state):
         tau = self.default_tau * np.ones(state.shape[0])
         if state.shape[1] < 7:
-            self._state = np.concatenate((state, np.expand_dims(tau, -1)), axis=-1)
+            escaped = np.zeros(state.shape[0])
+            state = np.concatenate((state, np.expand_dims(tau, -1)), axis=-1)
+            self._state = np.concatenate((state, np.expand_dims(escaped, -1)), axis=-1)
         else:
             self._state = state
         if self.initial_speeds is None:
@@ -61,6 +65,15 @@ class PedState:
     def tau(self):
         return self.state[:, 6:7]
 
+    def escaped(self):
+        return self.state[:,7]
+
+    def get_nr_escaped(self):
+        return np.sum(self.state[:,7])
+    
+    def get_nr_peds(self) :
+        return self.state.shape[0]
+
     def speeds(self):
         """Return the speeds corresponding to a given state."""
         return stateutils.speeds(self.state)
@@ -78,6 +91,10 @@ class PedState:
         next_state[:, 0:2] += desired_velocity * self.step_width
         next_state[:, 2:4] = desired_velocity
         next_groups = self.groups
+        if self.border is not None:
+            escaped_rows = np.where((next_state[:,0] <= self.border[0]) | (next_state[:,0] >= self.border[1]) | (next_state[:,1] <= self.border[2]) | (next_state[:,1] >= self.border[3]))[0]
+            if escaped_rows.size > 0 :
+                next_state[escaped_rows,7] = 1
         if groups is not None:
             next_groups = groups
         self.update(next_state, next_groups)
@@ -120,7 +137,6 @@ class PedState:
             if index in group:
                 return i
         return -1
-
 
 class EnvState:
     """State of the environment obstacles"""
