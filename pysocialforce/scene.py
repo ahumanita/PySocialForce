@@ -69,7 +69,7 @@ class PedState:
         self.state[p, 4:6] = new_goal
 
     def set_exit_goal(self, p, exit_id) :
-        self.set_goal(p, self.simulator.get_exits()[exit_id][:2])
+        self.set_goal(p, self.simulator.get_exits()[exit_id,:2])
         self.state[p,8] = exit_id
 
     def tau(self):
@@ -104,10 +104,21 @@ class PedState:
         next_state[:, 0:2] += desired_velocity * self.step_width
         next_state[:, 2:4] = desired_velocity
         next_groups = self.groups
-        if self.border is not None:
+        if self.border is not None :
             escaped_rows = np.where((next_state[:,0] <= self.border[0]) | (next_state[:,0] >= self.border[1]) | (next_state[:,1] <= self.border[2]) | (next_state[:,1] >= self.border[3]))[0]
             if escaped_rows.size > 0 :
                 next_state[escaped_rows,7] = 1
+        # TODO: efficient way to do this? 
+        # Update target to next exit when agent is close enough
+        if self.simulator.get_exits() is not None :
+            exits = self.simulator.get_exits()
+            exit_as_target = np.where(next_state[:,8] >= 0)[0]
+            if exit_as_target.size > 0 :
+                for p in np.nditer(exit_as_target) :
+                    if np.linalg.norm(next_state[p,:2]-exits[int(next_state[p,8]),:2]) < 2*self.agent_radius :
+                        next_exit_id = exits[int(next_state[p,8]),3]
+                        if next_exit_id is not None :
+                            self.set_exit_goal(p,next_exit_id)
         if groups is not None:
             next_groups = groups
         self.update(next_state, next_groups)
@@ -125,16 +136,13 @@ class PedState:
             pos = self.pos()
             for p in range(self.get_nr_peds()) :
                 closest = 0
-                closest_dist = np.linalg.norm(pos[p]-exits[0][:2])
+                closest_dist = np.linalg.norm(pos[p]-exits[0,:2])
                 for e in range(1,len(exits)) :
-                    dist = np.linalg.norm(pos[p]-exits[e][:2])
+                    dist = np.linalg.norm(pos[p]-exits[e,:2])
                     if dist < closest_dist :
                         closest = e
                         closest_dist = dist
                 self.set_exit_goal(p,closest)
-
-
-
 
     @staticmethod
     def capped_velocity(desired_velocity, max_velocity):
@@ -234,3 +242,4 @@ class EnvState:
             self._exits = []
             for posx, posy, radius, next_exit in exits:
                 self._exits.append(np.array([posx, posy, radius, next_exit]))
+            self._exits = np.array(self._exits)
