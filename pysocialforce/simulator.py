@@ -37,14 +37,14 @@ class Simulator:
         Make one step
     """
 
-    def __init__(self, state, groups=None, obstacles=None, fires=None, border=None, config_file=None):
+    def __init__(self, state, groups=None, obstacles=None, fires=None, exits=None, border=None, config_file=None):
         self.config = DefaultConfig()
         if config_file:
             self.config.load_config(config_file)
         # TODO: load obstacles from config
         self.scene_config = self.config.sub_config("scene")
         # initiate obstacles
-        self.env = EnvState(obstacles, fires, self.config("resolution", 10.0))
+        self.env = EnvState(obstacles, fires, exits, self.config("resolution", 10.0))
 
         # initiate agents
         self.peds = PedState(state, groups, border, self.config)
@@ -93,6 +93,9 @@ class Simulator:
 
     def get_fires(self):
         return self.env.fires
+
+    def get_exits(self):
+        return self.env.exits
 
     def step_once(self):
         """step once"""

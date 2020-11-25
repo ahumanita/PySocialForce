@@ -225,9 +225,14 @@ class SceneVisualizer:
         for f in self.scene.get_fires():
             self.ax.add_patch(Rectangle((f[:,0][0],f[:,1][0]), f[:,0][-1]-f[:,0][0], f[:,1][-1]-f[:,1][0], fill=True, color="red"))
 
+    def plot_exits(self):
+        for e in self.scene.get_exits():
+            self.ax.add_patch(Circle((e[0],e[1]), e[2], fill=True, color="green", alpha=0.2))
+
     def animation_init(self):
         self.plot_obstacles()
         self.plot_fires()
+        self.plot_exits()
         self.ax.add_collection(self.group_collection)
         self.ax.add_collection(self.human_collection)
 
