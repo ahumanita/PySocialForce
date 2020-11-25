@@ -47,7 +47,11 @@ class Simulator:
         self.env = EnvState(obstacles, fires, exits, self.config("resolution", 10.0))
 
         # initiate agents
-        self.peds = PedState(state, groups, border, self.config)
+        self.peds = PedState(self, state, groups, border, self.config)
+        # if the agents have knowledge about the positions of emergency exits,
+        # set closest emergency exit as target
+        if self.scene_config("exit_knowledge") :
+            self.peds.set_exits_as_targets()
 
         # construct forces
         self.forces = self.make_forces(self.config)

@@ -49,6 +49,7 @@ class DefaultConfig(Config):
     title = "Social Force Default Config File"
 
     [scene]
+    exit_knowledge = true
     enable_group = true
     agent_radius = 0.35
     step_width = 1.0

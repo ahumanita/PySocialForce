@@ -9,11 +9,12 @@ from pysocialforce.utils import stateutils
 class PedState:
     """Tracks the state of pedstrains and social groups"""
 
-    def __init__(self, state, groups, border, config):
+    def __init__(self, simulator, state, groups, border, config):
         self.default_tau = config("tau", 0.5)
         self.step_width = config("step_width", 0.4)
         self.agent_radius = config("agent_radius", 0.35)
         self.max_speed_multiplier = config("max_speed_multiplier", 1.3)
+        self.simulator = simulator
 
         self.border = border
 
@@ -38,8 +39,10 @@ class PedState:
         tau = self.default_tau * np.ones(state.shape[0])
         if state.shape[1] < 7:
             escaped = np.zeros(state.shape[0])
+            targeted_exit = -np.ones(state.shape[0])
             state = np.concatenate((state, np.expand_dims(tau, -1)), axis=-1)
-            self._state = np.concatenate((state, np.expand_dims(escaped, -1)), axis=-1)
+            state = np.concatenate((state, np.expand_dims(escaped, -1)), axis=-1)
+            self._state = np.concatenate((state, np.expand_dims(targeted_exit, -1)), axis=-1)
         else:
             self._state = state
         if self.initial_speeds is None:
@@ -62,13 +65,23 @@ class PedState:
     def goal(self) -> np.ndarray:
         return self.state[:, 4:6]
 
+    def set_goal(self, p, new_goal) :
+        self.state[p, 4:6] = new_goal
+
+    def set_exit_goal(self, p, exit_id) :
+        self.set_goal(p, self.simulator.get_exits()[exit_id][:2])
+        self.state[p,8] = exit_id
+
     def tau(self):
         return self.state[:, 6:7]
 
-    def escaped(self):
+    def escaped(self) :
         return self.state[:,7]
 
-    def get_nr_escaped(self):
+    def targeted_exit(self) :
+        return self.state[:,8]
+
+    def get_nr_escaped(self) :
         return np.sum(self.state[:,7])
     
     def get_nr_peds(self) :
@@ -104,6 +117,24 @@ class PedState:
 
     def desired_directions(self):
         return stateutils.desired_directions(self.state)[0]
+
+    def set_exits_as_targets(self) :
+        # TODO: efficient way to do this?
+        exits = self.simulator.get_exits()
+        if exits is not None :
+            pos = self.pos()
+            for p in range(self.get_nr_peds()) :
+                closest = 0
+                closest_dist = np.linalg.norm(pos[p]-exits[0][:2])
+                for e in range(1,len(exits)) :
+                    dist = np.linalg.norm(pos[p]-exits[e][:2])
+                    if dist < closest_dist :
+                        closest = e
+                        closest_dist = dist
+                self.set_exit_goal(p,closest)
+
+
+
 
     @staticmethod
     def capped_velocity(desired_velocity, max_velocity):
