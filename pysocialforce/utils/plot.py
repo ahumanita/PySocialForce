@@ -97,6 +97,7 @@ class SceneVisualizer:
         """Main method for create plot"""
         self.plot_obstacles()
         self.plot_fires()
+        self.plot_exits()
         groups = self.group_states[0]  # static group for now
         if not groups:
             for ped in range(self.scene.peds.size()):
@@ -242,3 +243,14 @@ class SceneVisualizer:
         self.plot_groups(i)
         self.plot_human(i)
         return (self.group_collection, self.human_collection)
+
+    def plot_escaped(self) :
+        fig, ax = plt.subplots()
+        escaped = [i/self.scene.peds.get_nr_peds()*100 for i in self.scene.peds.escaped]
+        timesteps = [t for t in range(len(escaped))]
+        ax.plot(timesteps,escaped)
+        ax.set_xlabel("Timestep")
+        ax.set_ylabel("Escaped people [%]")
+        ax.set_title("Percent of people that are escaped the building in total over time.")
+        fig.savefig(self.output + "_escaped.png")
+        logger.info("Created plot of escaped people.")

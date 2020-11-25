@@ -23,12 +23,14 @@ class PedState:
 
         self.ped_states = []
         self.group_states = []
+        self.escaped = []
 
         self.update(state, groups)
 
     def update(self, state, groups):
         self.state = state
         self.groups = groups
+        self.escaped.append(self.get_nr_escaped())
 
     @property
     def state(self):
