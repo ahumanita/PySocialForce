@@ -52,6 +52,10 @@ class Simulator:
         # set closest emergency exit as target
         if self.scene_config("exit_knowledge") :
             self.peds.set_exits_as_targets()
+        else :
+            # We only want to consider one fire right now..
+            if fires is not None and len(fires) <= 1 :
+                self.peds.set_fire_target()
 
         # construct forces
         self.forces = self.make_forces(self.config)

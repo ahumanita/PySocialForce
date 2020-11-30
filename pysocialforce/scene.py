@@ -55,6 +55,9 @@ class PedState:
     def get_states(self):
         return np.stack(self.ped_states), self.group_states
 
+    def get_ped_states(self):
+        return self.ped_states
+
     def size(self) -> int:
         return self.state.shape[0]
 
@@ -121,6 +124,27 @@ class PedState:
                         next_exit_id = exits[int(next_state[p,8]),3]
                         if next_exit_id is not None :
                             self.set_exit_goal(p,next_exit_id)
+        # Update the directions of those that don't follow an exit yet
+        not_to_exit = np.where(next_state[:,8] == -1)[0]
+        if not_to_exit.size > 0 :
+            if self.simulator.get_exits() is not None :
+                exits = self.simulator.get_exits()
+                for p in np.nditer(not_to_exit) :
+                    p_pos = next_state[p,:2]
+                    # Set exit as target when person is in exit radius
+                    to_exit = False
+                    for e in range(exits.shape[0]) :
+                        if np.linalg.norm(p_pos-exits[e,:2]) < exits[e,2] :
+                            self.set_exit_goal(p,e)
+                            to_exit = True
+                    if to_exit :
+                        continue
+                    # Otherwise set again target to opposite of fire
+                    f = self.simulator.get_fires()[0]
+                    fire_center = np.array([f[:,0][0]+(f[:,0][-1]-f[:,0][0])/2, f[:,1][0]+(f[:,1][-1]-f[:,1][0])/2])
+                    target = p_pos - (fire_center - p_pos)
+                    self.simulator.peds.set_goal(p, target)
+
         if groups is not None:
             next_groups = groups
         self.update(next_state, next_groups)
@@ -145,6 +169,16 @@ class PedState:
                         closest = e
                         closest_dist = dist
                 self.set_exit_goal(p,closest)
+
+    # Walk in opposite direction to fire
+    def set_fire_target(self) :
+        f = self.simulator.get_fires()[0]
+        fire_center = np.array([f[:,0][0]+(f[:,0][-1]-f[:,0][0])/2, f[:,1][0]+(f[:,1][-1]-f[:,1][0])/2])
+        states = self.simulator.peds.get_ped_states()[0]
+        for p in range(self.get_nr_peds()) :
+            p_pos = states[p,0:2]
+            target = p_pos - (fire_center - p_pos)
+            self.simulator.peds.set_goal(p, target)
 
     @staticmethod
     def capped_velocity(desired_velocity, max_velocity):
