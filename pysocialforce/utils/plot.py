@@ -228,8 +228,9 @@ class SceneVisualizer:
 
     def plot_exits(self):
         for e in self.scene.get_exits():
+            # continue
             self.ax.add_patch(Circle((e[0],e[1]), 1, fill=True, color="green", alpha=0.1))
-            self.ax.add_patch(Circle((e[0],e[1]), e[2], fill=True, color="green", alpha=0.05))
+            self.ax.add_patch(Circle((e[0],e[1]), e[2], fill=False, color="green", alpha=0.1))
 
     def animation_init(self):
         self.plot_obstacles()
@@ -253,5 +254,6 @@ class SceneVisualizer:
         ax.set_xlabel("Timestep")
         ax.set_ylabel("Escaped people [%]")
         ax.set_title("Percent of people that are escaped the building in total over time.")
+        ax.grid(linestyle="dotted")
         fig.savefig(self.output + "_escaped.png")
         logger.info("Created plot of escaped people.")

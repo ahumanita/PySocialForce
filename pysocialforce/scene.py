@@ -5,7 +5,6 @@ import numpy as np
 
 from pysocialforce.utils import stateutils
 
-
 class PedState:
     """Tracks the state of pedstrains and social groups"""
 
@@ -14,6 +13,8 @@ class PedState:
         self.step_width = config("step_width", 0.4)
         self.agent_radius = config("agent_radius", 0.35)
         self.max_speed_multiplier = config("max_speed_multiplier", 1.3)
+        self.follower_radius = config("follower_radius", 2.0)
+        self.enable_following = config("enable_following", False)
         self.simulator = simulator
 
         self.border = border
@@ -139,11 +140,37 @@ class PedState:
                             to_exit = True
                     if to_exit :
                         continue
-                    # Otherwise set again target to opposite of fire
-                    f = self.simulator.get_fires()[0]
-                    fire_center = np.array([f[:,0][0]+(f[:,0][-1]-f[:,0][0])/2, f[:,1][0]+(f[:,1][-1]-f[:,1][0])/2])
-                    target = p_pos - (fire_center - p_pos)
-                    self.simulator.peds.set_goal(p, target)
+                    # Otherwise set target to opposite of fire
+                    if self.simulator.get_fires() is not None :
+                        f = self.simulator.get_fires()[0]
+                        fire_center = np.array([f[:,0][0]+(f[:,0][-1]-f[:,0][0])/2, f[:,1][0]+(f[:,1][-1]-f[:,1][0])/2])
+                        target = p_pos - (fire_center - p_pos)
+                        self.simulator.peds.set_goal(p, target)
+
+        # TODO: Orientation on other people
+        # Qiu, 2009: Following people get as direction the average direction of the other group members
+        # As we do not have any groups yet so maybe just define a radius and average the direction of 
+        # the other people inside the radius?
+        if self.enable_following :
+            not_to_exit = np.where(next_state[:,8] == -1)[0]
+            if not_to_exit.size > 0 :
+                np.random.shuffle(not_to_exit)
+                for p in np.nditer(not_to_exit) :
+                    p_pos = next_state[p,:2]
+                    average_direction = np.array([0.0,0.0])
+                    nneighbors = 0
+                    for n in range(next_state.shape[0]) :
+                        if np.linalg.norm(next_state[n,:2] - p_pos) <= self.follower_radius :
+                            average_direction += next_state[n,2:4]
+                            nneighbors += 1
+                    average_direction /= nneighbors
+                    # Get angle between target direction and average_direction
+                    target = next_state[p,4:6]
+                    theta = np.arccos(np.dot(p_pos + average_direction, target)/(np.linalg.norm(p_pos + average_direction)*np.linalg.norm(target)))
+                    # Translate target, turn by rotation matrix and translate back
+                    rot_mat = np.array([[np.cos(theta), -np.sin(theta)],[np.sin(theta), np.cos(theta)]])
+                    target = np.matmul(rot_mat,(target - p_pos)) + p_pos
+                    self.set_goal(p,target)                 
 
         if groups is not None:
             next_groups = groups
