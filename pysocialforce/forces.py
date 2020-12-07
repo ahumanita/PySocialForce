@@ -302,7 +302,7 @@ class ObstacleForce(Force):
 
     def _get_force(self):
         sigma = self.config("sigma", 0.2)
-        threshold = self.config("threshold", 0.2) + self.peds.agent_radius
+        threshold = self.config("threshold", 0.2) #+ self.peds.agent_radius
         force = np.zeros((self.peds.size(), 2))
         if len(self.scene.get_obstacles()) == 0:
             return force
@@ -331,7 +331,7 @@ class FireForce(Force):
         sigma = self.config("sigma", 0.2)
         threshold = self.config("threshold", 0.2) + self.peds.agent_radius
         force = np.zeros((self.peds.size(), 2))
-        if len(self.scene.get_fires()) == 0:
+        if self.scene.get_fires() is None :
             return force
         fires = np.vstack(self.scene.get_fires())
         pos = self.peds.pos()

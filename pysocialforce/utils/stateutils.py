@@ -116,3 +116,14 @@ def minmax(vecs: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.nda
     x_max = np.max(vecs[:, 0])
     y_max = np.max(vecs[:, 1])
     return (x_min, y_min, x_max, y_max)
+
+def turn_vector_around_other(vector, basev, referencev) :
+    # Get angle between target direction and average_direction
+    theta = np.arccos(np.dot(basev + referencev, vector)/(np.linalg.norm(basev + referencev)*np.linalg.norm(vector)))
+    # Translate target, turn by rotation matrix and translate back
+    rot_mat = np.array([[np.cos(theta), -np.sin(theta)],[np.sin(theta), np.cos(theta)]])
+    target = np.matmul(rot_mat,(vector - basev)) + basev
+    return target
+
+def smoke_impact(states, smoke_radius) :
+    return

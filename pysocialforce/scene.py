@@ -75,6 +75,7 @@ class PedState:
         self.state[p, 4:6] = new_goal
 
     def set_exit_goal(self, p, exit_id) :
+        exit_id = int(exit_id)
         self.set_goal(p, self.simulator.get_exits()[exit_id,:2])
         self.state[p,8] = exit_id
 
@@ -126,28 +127,28 @@ class PedState:
                         if next_exit_id is not None :
                             self.set_exit_goal(p,next_exit_id)
         # Update the directions of those that don't follow an exit yet
-        not_to_exit = np.where(next_state[:,8] == -1)[0]
-        if not_to_exit.size > 0 :
-            if self.simulator.get_exits() is not None :
-                exits = self.simulator.get_exits()
-                for p in np.nditer(not_to_exit) :
-                    p_pos = next_state[p,:2]
-                    # Set exit as target when person is in exit radius
-                    to_exit = False
-                    for e in range(exits.shape[0]) :
-                        if np.linalg.norm(p_pos-exits[e,:2]) < exits[e,2] :
-                            self.set_exit_goal(p,e)
-                            to_exit = True
-                    if to_exit :
-                        continue
-                    # Otherwise set target to opposite of fire
-                    if self.simulator.get_fires() is not None :
-                        f = self.simulator.get_fires()[0]
-                        fire_center = np.array([f[:,0][0]+(f[:,0][-1]-f[:,0][0])/2, f[:,1][0]+(f[:,1][-1]-f[:,1][0])/2])
-                        target = p_pos - (fire_center - p_pos)
-                        self.simulator.peds.set_goal(p, target)
+        if self.simulator.get_exits() is not None :
+            not_to_exit = np.where(next_state[:,8] == -1)[0]
+            if not_to_exit.size > 0 :
+                if self.simulator.get_exits() is not None :
+                    exits = self.simulator.get_exits()
+                    for p in np.nditer(not_to_exit) :
+                        p_pos = next_state[p,:2]
+                        # Set exit as target when person is in exit radius
+                        to_exit = False
+                        for e in range(exits.shape[0]) :
+                            if np.linalg.norm(p_pos-exits[e,:2]) < exits[e,2] :
+                                self.set_exit_goal(p,e)
+                                to_exit = True
+                        if to_exit :
+                            continue
+                        # Otherwise set target to opposite of fire
+                        if self.simulator.get_fires() is not None :
+                            f = self.simulator.get_fires()[0]
+                            fire_center = np.array([f[:,0][0]+(f[:,0][-1]-f[:,0][0])/2, f[:,1][0]+(f[:,1][-1]-f[:,1][0])/2])
+                            target = p_pos - (fire_center - p_pos)
+                            self.simulator.peds.set_goal(p, target)
 
-        # TODO: Orientation on other people
         # Qiu, 2009: Following people get as direction the average direction of the other group members
         # As we do not have any groups yet so maybe just define a radius and average the direction of 
         # the other people inside the radius?
@@ -163,14 +164,13 @@ class PedState:
                         if np.linalg.norm(next_state[n,:2] - p_pos) <= self.follower_radius :
                             average_direction += next_state[n,2:4]
                             nneighbors += 1
-                    average_direction /= nneighbors
-                    # Get angle between target direction and average_direction
                     target = next_state[p,4:6]
-                    theta = np.arccos(np.dot(p_pos + average_direction, target)/(np.linalg.norm(p_pos + average_direction)*np.linalg.norm(target)))
-                    # Translate target, turn by rotation matrix and translate back
-                    rot_mat = np.array([[np.cos(theta), -np.sin(theta)],[np.sin(theta), np.cos(theta)]])
-                    target = np.matmul(rot_mat,(target - p_pos)) + p_pos
+                    if nneighbors > 0 :
+                        average_direction /= nneighbors
+                        target = stateutils.turn_vector_around_other(target, p_pos, average_direction)
                     self.set_goal(p,target)                 
+
+
 
         if groups is not None:
             next_groups = groups
@@ -248,6 +248,7 @@ class EnvState:
         self.obstacles = obstacles
         self.fires = fires
         self.exits = exits
+        self.smoke_radius = 0.01
 
     @property
     def obstacles(self) -> List[np.ndarray]:
@@ -278,9 +279,8 @@ class EnvState:
     @fires.setter
     def fires(self, fires):
         """Input an list of (startx, endx, starty, endy) as start and end of a line"""
-        if fires is None:
-            self._fires = []
-        else:
+        self._fires = None
+        if fires is not None:
             self._fires = []
             for startx, endx, starty, endy in fires:
                 samples = int(np.linalg.norm((startx - endx, starty - endy)) * self.resolution)
@@ -299,9 +299,8 @@ class EnvState:
     @exits.setter
     def exits(self, exits):
         """Input an list of (startx, endx, starty, endy) as start and end of a line"""
-        if exits is None:
-            self._exits = []
-        else:
+        self._exits = None
+        if exits is not None:
             self._exits = []
             for posx, posy, radius, next_exit in exits:
                 self._exits.append(np.array([posx, posy, radius, next_exit]))

@@ -222,15 +222,17 @@ class SceneVisualizer:
         for s in self.scene.get_obstacles():
             self.ax.add_patch(Rectangle((s[:,0][0],s[:,1][0]), s[:,0][-1]-s[:,0][0], s[:,1][-1]-s[:,1][0], fill=True, color="black"))
 
-    def plot_fires(self):
-        for f in self.scene.get_fires():
-            self.ax.add_patch(Rectangle((f[:,0][0],f[:,1][0]), f[:,0][-1]-f[:,0][0], f[:,1][-1]-f[:,1][0], fill=True, color="red"))
+    def plot_fires(self) :
+        if self.scene.get_fires() is not None :
+            for f in self.scene.get_fires():
+                self.ax.add_patch(Rectangle((f[:,0][0],f[:,1][0]), f[:,0][-1]-f[:,0][0], f[:,1][-1]-f[:,1][0], fill=True, color="red"))
 
-    def plot_exits(self):
-        for e in self.scene.get_exits():
-            # continue
-            self.ax.add_patch(Circle((e[0],e[1]), 1, fill=True, color="green", alpha=0.1))
-            self.ax.add_patch(Circle((e[0],e[1]), e[2], fill=False, color="green", alpha=0.1))
+    def plot_exits(self) :
+        if self.scene.get_exits() is not None :
+            for e in self.scene.get_exits():
+                # continue
+                # self.ax.add_patch(Circle((e[0],e[1]), 1, fill=True, color="green", alpha=0.1))
+                self.ax.add_patch(Circle((e[0],e[1]), e[2], fill=True, color="green", alpha=0.1))
 
     def animation_init(self):
         self.plot_obstacles()
