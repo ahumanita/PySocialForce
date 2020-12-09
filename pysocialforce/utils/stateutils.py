@@ -125,5 +125,20 @@ def turn_vector_around_other(vector, basev, referencev) :
     target = np.matmul(rot_mat,(vector - basev)) + basev
     return target
 
-def smoke_impact(states, smoke_radius) :
-    return
+def smoke(state,R_sm,fire,dR_sm,dc_health,dc_panic,dt=1) :
+    R_sm += dR_sm*dt
+    n_people = len(state)
+    x,y = [state[:,0],state[:,1]]
+    x_smoke,y_smoke = [fire[:,0][0]+(fire[:,0][-1]-fire[:,0][0])/2, fire[:,1][0]+(fire[:,1][-1]-fire[:,1][0])/2]
+    c_smoke,c_health,c_panic = [np.zeros(n_people),state[:,7],state[:,8]]
+    index = np.where((x-x_smoke)**2+(y-y_smoke)**2<R_sm**2)
+    d_rel = 1-np.sqrt(((x[index]-x_smoke)**2+(y[index]-y_smoke)**2))/R_sm
+    c_smoke[index] = d_rel
+    c_health[index] += dc_health*d_rel*dt  
+    c_health[np.where(c_health<0)] = 0
+    c_panic[index] += dc_panic*d_rel*dt     
+    state[:,9] = c_smoke
+    state[:,10] = c_health
+    state[:,11] = c_panic
+    
+    return state, R_sm

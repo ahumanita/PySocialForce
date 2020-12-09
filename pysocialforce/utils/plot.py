@@ -224,15 +224,23 @@ class SceneVisualizer:
 
     def plot_fires(self) :
         if self.scene.get_fires() is not None :
-            for f in self.scene.get_fires():
+            for f in self.scene.get_fires() :
                 self.ax.add_patch(Rectangle((f[:,0][0],f[:,1][0]), f[:,0][-1]-f[:,0][0], f[:,1][-1]-f[:,1][0], fill=True, color="red"))
 
     def plot_exits(self) :
         if self.scene.get_exits() is not None :
-            for e in self.scene.get_exits():
+            for e in self.scene.get_exits() :
                 # continue
                 # self.ax.add_patch(Circle((e[0],e[1]), 1, fill=True, color="green", alpha=0.1))
                 self.ax.add_patch(Circle((e[0],e[1]), e[2], fill=True, color="green", alpha=0.1))
+
+    def plot_smoke(self, step=-1) :
+        if self.scene.get_fires() is not None :
+            for f in self.scene.get_fires() :
+                fcx = f[:,0][0] + (f[:,0][-1]-f[:,0][0])/2
+                fcy = f[:,1][0] + (f[:,1][-1]-f[:,1][0])/2
+                rad = self.scene.peds.get_smoke_radii()[step]
+                self.ax.add_patch(Circle((fcx, fcy), rad, fill=True, color="black", alpha=0.01))
 
     def animation_init(self):
         self.plot_obstacles()
@@ -246,6 +254,7 @@ class SceneVisualizer:
     def animation_update(self, i):
         self.plot_groups(i)
         self.plot_human(i)
+        self.plot_smoke(i)
         return (self.group_collection, self.human_collection)
 
     def plot_escaped(self) :

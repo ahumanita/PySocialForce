@@ -99,11 +99,17 @@ class Simulator:
     def get_obstacles(self):
         return self.env.obstacles
 
-    def get_fires(self):
+    def get_fires(self) :
         return self.env.fires
 
-    def get_exits(self):
+    def get_exits(self) :
         return self.env.exits
+
+    def get_smoke_radius(self) :
+        return self.env.smoke_radius
+
+    def set_smoke_radius(self, new_radius) :
+        self.env.smoke_radius = new_radius
 
     def step_once(self):
         """step once"""

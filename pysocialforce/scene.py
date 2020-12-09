@@ -15,6 +15,9 @@ class PedState:
         self.max_speed_multiplier = config("max_speed_multiplier", 1.3)
         self.follower_radius = config("follower_radius", 2.0)
         self.enable_following = config("enable_following", False)
+        self.smoke_change = config("smoke_change", 0.01)
+        self.panic_change_s = config("panic_change_s", 0.01)
+        self.health_change = config("health_change", 0.01)
         self.simulator = simulator
 
         self.border = border
@@ -25,6 +28,9 @@ class PedState:
         self.ped_states = []
         self.group_states = []
         self.escaped = []
+        self.smoke_radii = [self.simulator.get_smoke_radius()]
+        self.av_health = []
+        self.av_panic = []
 
         self.update(state, groups)
 
@@ -41,11 +47,23 @@ class PedState:
     def state(self, state):
         tau = self.default_tau * np.ones(state.shape[0])
         if state.shape[1] < 7:
+            # escaped: index 7
             escaped = np.zeros(state.shape[0])
+            # target exit: index 8
             targeted_exit = -np.ones(state.shape[0])
+            # smoke coefficient: index 9
+            smoke = np.zeros(state.shape[0])
+            # health coefficient: index 10
+            health = np.ones(state.shape[0])
+            # panic coefficient: index 11
+            panic = np.zeros(state.shape[0])
+            # extend states
             state = np.concatenate((state, np.expand_dims(tau, -1)), axis=-1)
             state = np.concatenate((state, np.expand_dims(escaped, -1)), axis=-1)
-            self._state = np.concatenate((state, np.expand_dims(targeted_exit, -1)), axis=-1)
+            state = np.concatenate((state, np.expand_dims(targeted_exit, -1)), axis=-1)
+            state = np.concatenate((state, np.expand_dims(smoke, -1)), axis=-1)
+            state = np.concatenate((state, np.expand_dims(health, -1)), axis=-1)
+            self._state = np.concatenate((state, np.expand_dims(panic, -1)), axis=-1)
         else:
             self._state = state
         if self.initial_speeds is None:
@@ -90,6 +108,9 @@ class PedState:
 
     def get_nr_escaped(self) :
         return np.sum(self.state[:,7])
+
+    def get_smoke_radii(self) :
+        return self.smoke_radii
     
     def get_nr_peds(self) :
         return self.state.shape[0]
@@ -97,6 +118,52 @@ class PedState:
     def speeds(self):
         """Return the speeds corresponding to a given state."""
         return stateutils.speeds(self.state)
+
+    def update_target(self, next_state) :
+        # Update the directions of those that don't follow an exit yet
+        if self.simulator.get_exits() is not None :
+            not_to_exit = np.where(next_state[:,8] == -1)[0]
+            if not_to_exit.size > 0 :
+                if self.simulator.get_exits() is not None :
+                    exits = self.simulator.get_exits()
+                    for p in np.nditer(not_to_exit) :
+                        p_pos = next_state[p,:2]
+                        # Set exit as target when person is in exit radius
+                        to_exit = False
+                        for e in range(exits.shape[0]) :
+                            if np.linalg.norm(p_pos-exits[e,:2]) < exits[e,2] :
+                                self.set_exit_goal(p,e)
+                                to_exit = True
+                        if to_exit :
+                            continue
+                        # Otherwise set target to opposite of fire
+                        if self.simulator.get_fires() is not None :
+                            f = self.simulator.get_fires()[0]
+                            fire_center = np.array([f[:,0][0]+(f[:,0][-1]-f[:,0][0])/2, f[:,1][0]+(f[:,1][-1]-f[:,1][0])/2])
+                            target = p_pos - (fire_center - p_pos)
+                            self.simulator.peds.set_goal(p, target)
+
+    def follower_model(self, next_state) :
+        # Qiu, 2009: Following people get as direction the average direction of the other group members
+        # As we do not have any groups yet so maybe just define a radius and average the direction of 
+        # the other people inside the radius?
+        if self.enable_following :
+            not_to_exit = np.where(next_state[:,8] == -1)[0]
+            if not_to_exit.size > 0 :
+                np.random.shuffle(not_to_exit)
+                for p in np.nditer(not_to_exit) :
+                    p_pos = next_state[p,:2]
+                    average_direction = np.array([0.0,0.0])
+                    nneighbors = 0
+                    for n in range(next_state.shape[0]) :
+                        if np.linalg.norm(next_state[n,:2] - p_pos) <= self.follower_radius :
+                            average_direction += next_state[n,2:4]
+                            nneighbors += 1
+                    target = next_state[p,4:6]
+                    if nneighbors > 0 :
+                        average_direction /= nneighbors
+                        target = stateutils.turn_vector_around_other(target, p_pos, average_direction)
+                    self.set_goal(p,target)  
 
     def step(self, force, groups=None):
         """Move peds according to forces"""
@@ -127,50 +194,22 @@ class PedState:
                         if next_exit_id is not None :
                             self.set_exit_goal(p,next_exit_id)
         # Update the directions of those that don't follow an exit yet
-        if self.simulator.get_exits() is not None :
-            not_to_exit = np.where(next_state[:,8] == -1)[0]
-            if not_to_exit.size > 0 :
-                if self.simulator.get_exits() is not None :
-                    exits = self.simulator.get_exits()
-                    for p in np.nditer(not_to_exit) :
-                        p_pos = next_state[p,:2]
-                        # Set exit as target when person is in exit radius
-                        to_exit = False
-                        for e in range(exits.shape[0]) :
-                            if np.linalg.norm(p_pos-exits[e,:2]) < exits[e,2] :
-                                self.set_exit_goal(p,e)
-                                to_exit = True
-                        if to_exit :
-                            continue
-                        # Otherwise set target to opposite of fire
-                        if self.simulator.get_fires() is not None :
-                            f = self.simulator.get_fires()[0]
-                            fire_center = np.array([f[:,0][0]+(f[:,0][-1]-f[:,0][0])/2, f[:,1][0]+(f[:,1][-1]-f[:,1][0])/2])
-                            target = p_pos - (fire_center - p_pos)
-                            self.simulator.peds.set_goal(p, target)
-
+        self.update_target(next_state)
         # Qiu, 2009: Following people get as direction the average direction of the other group members
-        # As we do not have any groups yet so maybe just define a radius and average the direction of 
-        # the other people inside the radius?
-        if self.enable_following :
-            not_to_exit = np.where(next_state[:,8] == -1)[0]
-            if not_to_exit.size > 0 :
-                np.random.shuffle(not_to_exit)
-                for p in np.nditer(not_to_exit) :
-                    p_pos = next_state[p,:2]
-                    average_direction = np.array([0.0,0.0])
-                    nneighbors = 0
-                    for n in range(next_state.shape[0]) :
-                        if np.linalg.norm(next_state[n,:2] - p_pos) <= self.follower_radius :
-                            average_direction += next_state[n,2:4]
-                            nneighbors += 1
-                    target = next_state[p,4:6]
-                    if nneighbors > 0 :
-                        average_direction /= nneighbors
-                        target = stateutils.turn_vector_around_other(target, p_pos, average_direction)
-                    self.set_goal(p,target)                 
+        self.follower_model(next_state)               
 
-
+        # Smoke
+        if self.simulator.get_fires() is not None : 
+            f = self.simulator.get_fires()[0]
+            next_state, new_smoke_radius = stateutils.smoke(next_state,
+                                                self.simulator.get_smoke_radius(),
+                                                f,
+                                                self.smoke_change,
+                                                self.health_change,
+                                                self.panic_change_s)
+            self.simulator.set_smoke_radius(new_smoke_radius)
+            self.smoke_radii.append(new_smoke_radius)
+        # Panic TODO
 
         if groups is not None:
             next_groups = groups
