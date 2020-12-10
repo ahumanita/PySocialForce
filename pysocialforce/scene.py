@@ -31,6 +31,7 @@ class PedState:
         self.smoke_radii = [self.simulator.get_smoke_radius()]
         self.av_health = []
         self.av_panic = []
+        self.dead = []
 
         self.update(state, groups)
 
@@ -38,6 +39,9 @@ class PedState:
         self.state = state
         self.groups = groups
         self.escaped.append(self.get_nr_escaped())
+        self.av_health.append(np.sum(self.state[:,10])/self.state.shape[0])
+        self.av_panic.append(np.sum(self.state[:,11])/self.state.shape[0])
+        self.dead.append(np.sum(self.state[:,10] == 0))
 
     @property
     def state(self):
@@ -172,10 +176,13 @@ class PedState:
         desired_velocity = self.capped_velocity(desired_velocity, self.max_speeds)
         # stop when arrived
         desired_velocity[stateutils.desired_directions(self.state)[1] < 0.5] = [0, 0]
-
-        # update state
         next_state = self.state
-        next_state[:, 0:2] += desired_velocity * self.step_width
+        # Add random angle due to smoke
+        phi=np.arctan2(desired_velocity[:,1],desired_velocity[:,0])+next_state[:, 9]*np.random.uniform(-np.pi,np.pi,len(desired_velocity))
+        L_vel=np.sqrt(desired_velocity[:,0]**2+desired_velocity[:,1]**2)
+        # update state
+        next_state[:, 0] += L_vel* np.cos(phi) * self.step_width * next_state[:, 10] * (1+next_state[:, 11])
+        next_state[:, 1] += L_vel* np.sin(phi) * self.step_width * next_state[:, 10] * (1+next_state[:, 11])
         next_state[:, 2:4] = desired_velocity
         next_groups = self.groups
         if self.border is not None :
@@ -209,7 +216,6 @@ class PedState:
                                                 self.panic_change_s)
             self.simulator.set_smoke_radius(new_smoke_radius)
             self.smoke_radii.append(new_smoke_radius)
-        # Panic TODO
 
         if groups is not None:
             next_groups = groups

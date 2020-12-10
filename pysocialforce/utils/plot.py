@@ -63,7 +63,7 @@ class SceneVisualizer:
     """Context for social nav vidualization"""
 
     def __init__(
-        self, scene, output=None, writer="imagemagick", cmap="viridis", agent_colors=None, **kwargs
+        self, scene, output=None, limits=None, writer="imagemagick", cmap="viridis", agent_colors=None, **kwargs
     ):
         self.scene = scene
         self.states, self.group_states = self.scene.get_states()
@@ -72,6 +72,7 @@ class SceneVisualizer:
         self.frames = self.scene.get_length()
         self.output = output
         self.writer = writer
+        self.limits = limits
 
         self.fig, self.ax = plt.subplots(**kwargs)
 
@@ -143,12 +144,16 @@ class SceneVisualizer:
 
         # x, y limit from states, only for animation
         margin = 2.0
-        xy_limits = np.array(
-            [minmax(state) for state in self.states]
-        )  # (x_min, y_min, x_max, y_max)
-        xy_min = np.min(xy_limits[:, :2], axis=0) - margin
-        xy_max = np.max(xy_limits[:, 2:4], axis=0) + margin
-        self.ax.set(xlim=(xy_min[0], xy_max[0]), ylim=(xy_min[1], xy_max[1]))
+        if self.limits is None :
+            xy_limits = np.array(
+                [minmax(state) for state in self.states]
+            )  # (x_min, y_min, x_max, y_max)
+            xy_min = np.min(xy_limits[:, :2], axis=0) - margin
+            xy_max = np.max(xy_limits[:, 2:4], axis=0) + margin
+            self.ax.set(xlim=(xy_min[0], xy_max[0]), ylim=(xy_min[1], xy_max[1]))
+        else :
+            limits = self.limits
+            self.ax.set(xlim=(limits[0]-margin, limits[1]+margin), ylim=(limits[2]-margin, limits[3]+margin))
 
         # # recompute the ax.dataLim
         # self.ax.relim()
@@ -257,14 +262,22 @@ class SceneVisualizer:
         self.plot_smoke(i)
         return (self.group_collection, self.human_collection)
 
-    def plot_escaped(self) :
+    def plot_data(self) :
         fig, ax = plt.subplots()
         escaped = [i/self.scene.peds.get_nr_peds()*100 for i in self.scene.peds.escaped]
+        health = [i*100 for i in self.scene.peds.av_health]
+        panic = [i*100 for i in self.scene.peds.av_panic]
+        dead = [i/self.scene.peds.get_nr_peds()*100 for i in self.scene.peds.dead]
         timesteps = [t for t in range(len(escaped))]
-        ax.plot(timesteps,escaped)
+        ax.plot(timesteps,escaped,color="green",label="escaped")
+        ax.plot(timesteps,health,color="red",label="health")
+        ax.plot(timesteps,panic,color="purple",label="panic")
+        ax.plot(timesteps,dead,color="black",label="dead")
         ax.set_xlabel("Timestep")
-        ax.set_ylabel("Escaped people [%]")
-        ax.set_title("Percent of people that are escaped the building in total over time.")
+        ax.set_ylabel("[%]")
+        ax.set_ylim([0,100])
+        ax.set_title("Number of escaped and dead people and average health and panic.")
+        ax.legend()
         ax.grid(linestyle="dotted")
-        fig.savefig(self.output + "_escaped.png")
-        logger.info("Created plot of escaped people.")
+        fig.savefig(self.output + "_data.png")
+        logger.info("Created plot of data.")

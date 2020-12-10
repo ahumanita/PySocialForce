@@ -118,7 +118,7 @@ def minmax(vecs: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.nda
     return (x_min, y_min, x_max, y_max)
 
 def turn_vector_around_other(vector, basev, referencev) :
-    # Get angle between target direction and average_direction
+    # Get angle between vector and referencev with respect to basev
     theta = np.arccos(np.dot(basev + referencev, vector)/(np.linalg.norm(basev + referencev)*np.linalg.norm(vector)))
     # Translate target, turn by rotation matrix and translate back
     rot_mat = np.array([[np.cos(theta), -np.sin(theta)],[np.sin(theta), np.cos(theta)]])
@@ -134,9 +134,10 @@ def smoke(state,R_sm,fire,dR_sm,dc_health,dc_panic,dt=1) :
     index = np.where((x-x_smoke)**2+(y-y_smoke)**2<R_sm**2)
     d_rel = 1-np.sqrt(((x[index]-x_smoke)**2+(y[index]-y_smoke)**2))/R_sm
     c_smoke[index] = d_rel
-    c_health[index] += dc_health*d_rel*dt  
+    c_health[index] -= dc_health*d_rel*dt  
     c_health[np.where(c_health<0)] = 0
-    c_panic[index] += dc_panic*d_rel*dt     
+    c_panic[index] += dc_panic*d_rel*dt
+    c_panic[np.where(c_panic>1)] = 1     
     state[:,9] = c_smoke
     state[:,10] = c_health
     state[:,11] = c_panic
