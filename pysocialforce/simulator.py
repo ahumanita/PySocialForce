@@ -124,14 +124,20 @@ class Simulator:
                 break
         return self
 
-    def step_until_all_escaped(self):
-        not_all_escaped = True
+    def step_until_end(self):
+        all_escaped_or_dead = False
         n = 1
-        while not_all_escaped :
+        while not all_escaped_or_dead :
             self.step_once()
             if self.peds.get_nr_escaped() == self.peds.get_nr_peds() :
                 print("All people escaped after " + str(n) + " steps!")
-                not_all_escaped = False
+                all_escaped_or_dead = True
+                break
+            if self.peds.get_nr_dead() == self.peds.get_nr_peds() :
+                print("All people died after " + str(n) + " steps!")
+            if self.peds.get_nr_escaped() + self.peds.get_nr_dead() == self.peds.get_nr_peds() :
+                print(str(self.peds.get_nr_escaped()) + " escaped and " + str(self.peds.get_nr_dead()) + " died of " + str(self.peds.get_nr_peds()) + " in total after " + str(n) + " steps.")
+                all_escaped_or_dead = True
                 break
             n += 1
         return self

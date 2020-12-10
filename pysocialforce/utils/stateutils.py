@@ -133,11 +133,14 @@ def smoke(state,R_sm,fire,dR_sm,dc_health,dc_panic,dt=1) :
     c_smoke,c_health,c_panic = [state[:,9],state[:,10],state[:,11]]
     index = np.where((x-x_smoke)**2+(y-y_smoke)**2<R_sm**2)
     d_rel = 1-np.sqrt(((x[index]-x_smoke)**2+(y[index]-y_smoke)**2))/R_sm
+    state_tmp = state[index,7]
+    index_escaped = np.where(state_tmp == 1.0)
+    d_rel[index_escaped[1]] = 0
     c_smoke[index] = d_rel
     c_health[index] -= dc_health*d_rel*dt  
     c_health[np.where(c_health<0)] = 0
     c_panic[index] += dc_panic*d_rel*dt
-    c_panic[np.where(c_panic>1)] = 1     
+    c_panic[np.where(c_panic>1)] = 1    
     state[:,9] = c_smoke
     state[:,10] = c_health
     state[:,11] = c_panic

@@ -113,6 +113,9 @@ class PedState:
     def get_nr_escaped(self) :
         return np.sum(self.state[:,7])
 
+    def get_nr_dead(self) :
+        return self.dead[-1]
+
     def get_smoke_radii(self) :
         return self.smoke_radii
     
@@ -170,19 +173,32 @@ class PedState:
                     self.set_goal(p,target)  
 
     def step(self, force, groups=None):
-        """Move peds according to forces"""
+        """Move peds according to forces"""     
         # desired velocity
         desired_velocity = self.vel() + self.step_width * force
         desired_velocity = self.capped_velocity(desired_velocity, self.max_speeds)
         # stop when arrived
-        desired_velocity[stateutils.desired_directions(self.state)[1] < 0.5] = [0, 0]
+        desired_velocity[stateutils.desired_directions(self.state)[1] < 0.5] = [0, 0]        
+        # update state
         next_state = self.state
         # Add random angle due to smoke
         phi=np.arctan2(desired_velocity[:,1],desired_velocity[:,0])+next_state[:, 9]*np.random.uniform(-np.pi,np.pi,len(desired_velocity))
         L_vel=np.sqrt(desired_velocity[:,0]**2+desired_velocity[:,1]**2)
-        # update state
-        next_state[:, 0] += L_vel* np.cos(phi) * self.step_width * next_state[:, 10] * (1+next_state[:, 11])
-        next_state[:, 1] += L_vel* np.sin(phi) * self.step_width * next_state[:, 10] * (1+next_state[:, 11])
+        # Avoid fire
+        if self.simulator.get_fires() is not None :
+            # Get position opposite to fire
+            f = self.simulator.get_fires()[0]
+            fire_center = np.array([f[:,0][0]+(f[:,0][-1]-f[:,0][0])/2, f[:,1][0]+(f[:,1][-1]-f[:,1][0])/2])
+            opp_fire_dir = - (fire_center - next_state[:,:2])
+            target_dir = next_state[:,4:6] - next_state[:,:2]
+            # Get angles
+            target_angle = np.arctan2(target_dir[:,1],target_dir[:,0]) + np.pi
+            fire_angle = np.arctan2(opp_fire_dir[:,1],opp_fire_dir[:,0]) + np.pi
+            # Average angles and give weight of smoke impact
+            theta = 0.5*(target_angle + fire_angle)*next_state[:,9]
+        # Update next position
+        next_state[:, 0] += L_vel*np.cos(phi+theta) * self.step_width * next_state[:, 10] * (1+next_state[:, 11])
+        next_state[:, 1] += L_vel*np.sin(phi+theta) * self.step_width * next_state[:, 10] * (1+next_state[:, 11])
         next_state[:, 2:4] = desired_velocity
         next_groups = self.groups
         if self.border is not None :

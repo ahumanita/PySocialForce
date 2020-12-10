@@ -229,8 +229,11 @@ class SceneVisualizer:
 
     def plot_fires(self) :
         if self.scene.get_fires() is not None :
-            for f in self.scene.get_fires() :
-                self.ax.add_patch(Rectangle((f[:,0][0],f[:,1][0]), f[:,0][-1]-f[:,0][0], f[:,1][-1]-f[:,1][0], fill=True, color="red"))
+            f = self.scene.get_fires()[0]
+            self.ax.add_patch(Rectangle((f[:,0][0],f[:,1][0]), f[:,0][-1]-f[:,0][0], f[:,1][-1]-f[:,1][0], fill=True, color="red"))
+            if len(self.scene.get_fires()) > 1 :
+                b = self.scene.get_fires()[1]
+                self.ax.add_patch(Rectangle((b[:,0][0],b[:,1][0]), b[:,0][-1]-b[:,0][0], b[:,1][-1]-b[:,1][0], fill=False, color="red"))
 
     def plot_exits(self) :
         if self.scene.get_exits() is not None :
@@ -241,11 +244,11 @@ class SceneVisualizer:
 
     def plot_smoke(self, step=-1) :
         if self.scene.get_fires() is not None :
-            for f in self.scene.get_fires() :
-                fcx = f[:,0][0] + (f[:,0][-1]-f[:,0][0])/2
-                fcy = f[:,1][0] + (f[:,1][-1]-f[:,1][0])/2
-                rad = self.scene.peds.get_smoke_radii()[step]
-                self.ax.add_patch(Circle((fcx, fcy), rad, fill=True, color="black", alpha=0.01))
+            f = self.scene.get_fires()[0]
+            fcx = f[:,0][0] + (f[:,0][-1]-f[:,0][0])/2
+            fcy = f[:,1][0] + (f[:,1][-1]-f[:,1][0])/2
+            rad = self.scene.peds.get_smoke_radii()[step]
+            self.ax.add_patch(Circle((fcx, fcy), rad, fill=True, color="black", alpha=0.005))
 
     def animation_init(self):
         self.plot_obstacles()
