@@ -17,7 +17,9 @@ class PedState:
         self.enable_following = config("enable_following", False)
         self.smoke_change = config("smoke_change", 0.01)
         self.panic_change_s = config("panic_change_s", 0.01)
+        self.panic_change_t = config("panic_change_t", 0.001)
         self.health_change = config("health_change", 0.01)
+        self.esc_fir = config("esc_fire", 0.01)
         self.simulator = simulator
 
         self.border = border
@@ -173,32 +175,40 @@ class PedState:
                     self.set_goal(p,target)  
 
     def step(self, force, groups=None):
-        """Move peds according to forces"""     
-        # desired velocity
-        desired_velocity = self.vel() + self.step_width * force
-        desired_velocity = self.capped_velocity(desired_velocity, self.max_speeds)
-        # stop when arrived
-        desired_velocity[stateutils.desired_directions(self.state)[1] < 0.5] = [0, 0]        
-        # update state
+        """Move peds according to forces"""   
         next_state = self.state
-        # Add random angle due to smoke
-        phi=np.arctan2(desired_velocity[:,1],desired_velocity[:,0])+next_state[:, 9]*np.random.uniform(-np.pi,np.pi,len(desired_velocity))
-        L_vel=np.sqrt(desired_velocity[:,0]**2+desired_velocity[:,1]**2)
+        desired_velocity = self.vel() #+ self.step_width * force
         # Avoid fire
         if self.simulator.get_fires() is not None :
             # Get position opposite to fire
             f = self.simulator.get_fires()[0]
             fire_center = np.array([f[:,0][0]+(f[:,0][-1]-f[:,0][0])/2, f[:,1][0]+(f[:,1][-1]-f[:,1][0])/2])
             opp_fire_dir = - (fire_center - next_state[:,:2])
-            target_dir = next_state[:,4:6] - next_state[:,:2]
+            target_dir = desired_velocity
             # Get angles
-            target_angle = np.arctan2(target_dir[:,1],target_dir[:,0]) + np.pi
-            fire_angle = np.arctan2(opp_fire_dir[:,1],opp_fire_dir[:,0]) + np.pi
+            target_angle = np.mod(np.arctan2(target_dir[:,1],target_dir[:,0]),2*np.pi)
+            fire_angle = np.mod(np.arctan2(opp_fire_dir[:,1],opp_fire_dir[:,0]),2*np.pi)
             # Average angles and give weight of smoke impact
-            theta = 0.5*(target_angle + fire_angle)*next_state[:,9]
+            theta = np.zeros(len(target_angle))
+            index1 = np.where(np.abs(target_angle-fire_angle)>= np.pi)
+            index2 = np.where(np.abs(target_angle-fire_angle)< np.pi)
+            esc_fir = self.esc_fir
+            theta[index1] = ((1-esc_fir-(1-esc_fir)*next_state[index1, 9])*target_angle[index1]+(esc_fir+(1-esc_fir)*next_state[index1, 9])*fire_angle[index1]) - 2*np.pi*(1-esc_fir)
+            theta[index2] = ((1-esc_fir-(1-esc_fir)*next_state[index2, 9])*target_angle[index2]+(esc_fir+(1-esc_fir)*next_state[index2, 9])*fire_angle[index2])
+        # Add random angle due to smoke and panic
+        theta += (next_state[:, 9] + next_state[:,11])*np.random.uniform(-np.pi,np.pi,len(desired_velocity))
+        L_vel=np.sqrt(desired_velocity[:,0]**2+desired_velocity[:,1]**2)
         # Update next position
-        next_state[:, 0] += L_vel*np.cos(phi+theta) * self.step_width * next_state[:, 10] * (1+next_state[:, 11])
-        next_state[:, 1] += L_vel*np.sin(phi+theta) * self.step_width * next_state[:, 10] * (1+next_state[:, 11])
+        desired_velocity[:,0] = L_vel*np.cos(theta)
+        desired_velocity[:,1] = L_vel*np.sin(theta)
+        # desired velocity
+        desired_velocity = desired_velocity + self.step_width * force
+        desired_velocity = self.capped_velocity(desired_velocity, self.max_speeds)
+        # stop when arrived
+        desired_velocity[stateutils.desired_directions(self.state)[1] < 0.5] = [0, 0]        
+        # update state
+        next_state[:, 0] += desired_velocity[:,0] * self.step_width * next_state[:, 10] * (1+next_state[:, 11])
+        next_state[:, 1] += desired_velocity[:,1] * self.step_width * next_state[:, 10] * (1+next_state[:, 11])
         next_state[:, 2:4] = desired_velocity
         next_groups = self.groups
         if self.border is not None :
@@ -221,9 +231,10 @@ class PedState:
         # Qiu, 2009: Following people get as direction the average direction of the other group members
         self.follower_model(next_state)               
 
-        # Smoke
+        # Smoke and panic over time
         if self.simulator.get_fires() is not None : 
             f = self.simulator.get_fires()[0]
+            next_state[:,11] += self.panic_change_t
             next_state, new_smoke_radius = stateutils.smoke(next_state,
                                                 self.simulator.get_smoke_radius(),
                                                 f,
