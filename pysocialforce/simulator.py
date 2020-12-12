@@ -44,7 +44,7 @@ class Simulator:
         # TODO: load obstacles from config
         self.scene_config = self.config.sub_config("scene")
         # initiate obstacles
-        self.env = EnvState(obstacles, fires, exits, self.config("resolution", 10.0))
+        self.env = EnvState(self.scene_config, obstacles, fires, exits, self.config("resolution", 10.0))
 
         # initiate agents
         self.peds = PedState(self, state, groups, border, self.scene_config)

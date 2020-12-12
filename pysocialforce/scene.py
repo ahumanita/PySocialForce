@@ -315,12 +315,12 @@ class PedState:
 class EnvState:
     """State of the environment obstacles"""
 
-    def __init__(self, obstacles, fires=None, exits=None, resolution=10):
+    def __init__(self, config, obstacles, fires=None, exits=None, resolution=10):
         self.resolution = resolution
         self.obstacles = obstacles
         self.fires = fires
         self.exits = exits
-        self.smoke_radius = 0.01
+        self.smoke_radius = config("smoke_radius", 0.01)
 
     @property
     def obstacles(self) -> List[np.ndarray]:
