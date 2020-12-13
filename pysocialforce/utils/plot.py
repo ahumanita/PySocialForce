@@ -126,6 +126,7 @@ class SceneVisualizer:
             func=self.animation_update,
             frames=self.frames,
             blit=True,
+            interval=200,
         )
 
         return self.ani

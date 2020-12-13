@@ -7,6 +7,7 @@ See Helbing and Molnár 1998 and Moussaïd et al. 2010
 from pysocialforce.utils import DefaultConfig
 from pysocialforce.scene import PedState, EnvState
 from pysocialforce import forces
+import numpy as np
 
 
 class Simulator:
@@ -111,33 +112,55 @@ class Simulator:
     def set_smoke_radius(self, new_radius) :
         self.env.smoke_radius = new_radius
 
+    def get_escaped(self) :
+        return np.array(self.peds.escaped)
+
+    def get_dead(self) :
+        return np.array(self.peds.dead)
+
+    def get_health(self) :
+        return np.array(self.peds.av_health)
+
+    def get_panic(self) :
+        return np.array(self.peds.av_panic)
+
     def step_once(self):
         """step once"""
         self.peds.step(self.compute_forces())
 
     def step(self, n=1):
         """Step n time"""
+        N = n
+        finished = False
         for _ in range(n):
             self.step_once()
-            if self.peds.get_nr_escaped() == self.peds.get_nr_peds() :
-                print("All people escaped!")
-                break
-        return self
+            if not finished :
+                if self.peds.get_nr_escaped() + self.peds.get_nr_dead() == self.peds.get_nr_peds() :
+                    print(str(self.peds.get_nr_escaped()) + " escaped and " + str(self.peds.get_nr_dead()) + " died of " + str(self.peds.get_nr_peds()) + " in total after " + str(_) + " steps.")
+                    finished = True
+                    N = _
+        return N
 
     def step_until_end(self):
         all_escaped_or_dead = False
         n = 1
+        N = 1
         while not all_escaped_or_dead :
             self.step_once()
             if self.peds.get_nr_escaped() == self.peds.get_nr_peds() :
                 print("All people escaped after " + str(n) + " steps!")
                 all_escaped_or_dead = True
-                break
+                N = n
+                return N
             if self.peds.get_nr_dead() == self.peds.get_nr_peds() :
                 print("All people died after " + str(n) + " steps!")
+                all_escaped_or_dead = True
+                N = n
+                return N
             if self.peds.get_nr_escaped() + self.peds.get_nr_dead() == self.peds.get_nr_peds() :
                 print(str(self.peds.get_nr_escaped()) + " escaped and " + str(self.peds.get_nr_dead()) + " died of " + str(self.peds.get_nr_peds()) + " in total after " + str(n) + " steps.")
                 all_escaped_or_dead = True
-                break
+                N = n
+                return N
             n += 1
-        return self
+        return n

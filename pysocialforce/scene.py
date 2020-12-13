@@ -196,6 +196,9 @@ class PedState:
             theta[index1] = ((1-esc_fir-(1-esc_fir)*next_state[index1, 9])*target_angle[index1]+(esc_fir+(1-esc_fir)*next_state[index1, 9])*fire_angle[index1]) - 2*np.pi*(1-esc_fir)
             theta[index2] = ((1-esc_fir-(1-esc_fir)*next_state[index2, 9])*target_angle[index2]+(esc_fir+(1-esc_fir)*next_state[index2, 9])*fire_angle[index2])
         # Add random angle due to smoke and panic
+        else :
+            target_dir = desired_velocity
+            theta = np.mod(np.arctan2(target_dir[:,1],target_dir[:,0]),2*np.pi)
         theta += (next_state[:, 9] + next_state[:,11])*np.random.uniform(-np.pi,np.pi,len(desired_velocity))
         L_vel=np.sqrt(desired_velocity[:,0]**2+desired_velocity[:,1]**2)
         # Update next position
@@ -234,7 +237,8 @@ class PedState:
         # Smoke and panic over time
         if self.simulator.get_fires() is not None : 
             f = self.simulator.get_fires()[0]
-            next_state[:,11] += self.panic_change_t
+            index_escaped = np.where(next_state[:,7] == 1.0)[0]
+            next_state[~index_escaped,11] += self.panic_change_t
             next_state, new_smoke_radius = stateutils.smoke(next_state,
                                                 self.simulator.get_smoke_radius(),
                                                 f,
